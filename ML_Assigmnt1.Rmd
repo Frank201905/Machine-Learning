@@ -1,0 +1,123 @@
+---
+title: "ML Assignment"
+author: "PK"
+date: "18/02/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+
+The data for this project come from the Weight Lifting Dataset collected by the  human activity recognition research . 
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbitit  data about personal activity
+was collected by a group of enthusiasts who take measurements about themselves regularly to improve their health. 
+In this project, our goal was to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants 
+to predict the manner in which participants did the exercise. A model was built by predicting the "classe" variable 
+in the training by using the other variables.
+
+# Data source
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+
+# Loading Packages
+
+```{r,warning=FALSE, message=FALSE}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(gbm)
+library(knitr)
+```
+
+# Loading the data
+
+```{r}
+training_url<- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testing_url<- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+train_data<- read.csv(url(training_url))
+test_data<- read.csv(url(testing_url))
+dim(train_data)
+```
+# Preparing data
+
+## Removing Variables having near zero variance.
+
+```{r}
+nzv <- nearZeroVar(train_data)
+
+train_data2 <- train_data[,-nzv]
+test_data2 <- test_data[,-nzv]
+```
+
+## Removing variables that are mostly NA
+
+```{r}
+AllNA    <- sapply(train_data2, function(x) mean(is.na(x))) > 0.95
+training_data <- train_data2[, AllNA==FALSE]
+testing_data  <- test_data2[, AllNA==FALSE]
+```
+## Removing variables not contributing to the model (col1 to col5)
+
+```{r}
+training_data2 <- training_data[, -(1:5)]
+testing_data2  <- testing_data[, -(1:5)]
+```
+# Data Partitioning
+
+```{r}
+inTrain <- createDataPartition(training_data2$classe, p=0.6, list=FALSE)
+training <- training_data2[inTrain,]
+testing <- training_data2[-inTrain,]
+```
+# Random Forest Model
+
+```{r}
+RF_modfit <- train(classe ~ ., data = training, method = "rf", ntree = 100)
+RF_prediction <- predict(RF_modfit, testing)
+RF_cm <- confusionMatrix(RF_prediction, testing$classe)
+RF_cm
+```
+
+#GBM Model
+
+```{r}
+set.seed(1234)
+gbm_model<- train(classe~., data=training, method="gbm", verbose= FALSE)
+
+gbm_prediction<- predict(gbm_model, testing)
+gbm_cm<-confusionMatrix(gbm_prediction, testing$classe)
+gbm_cm
+```
+# Decision Tree Model
+
+```{r}
+DT_model<- train(classe ~. , data=training, method= "rpart")
+```
+## Plot
+
+```{r}
+
+fancyRpartPlot(DT_model$finalModel)
+```
+
+```{r}
+DT_prediction<- predict(DT_model, testing)
+DT_cm<-confusionMatrix(DT_prediction, testing$classe)
+DT_cm
+```
+
+
+# Conlcusion
+
+The Random Forest Model has the highest accuracy at 99%, followed by GBM Model at 98% and the Decision Tree Model at 49%.
+We will use the Random Forest model for further prediction.
